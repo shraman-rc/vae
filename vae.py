@@ -52,7 +52,7 @@ sigma_q = tf.sqrt(tf.exp( # exp/sqrt because this is log variance estimate
 # TODO: Introduce L later here
 ep = tf.random_normal([J], mean=0, stddev=1) # TODO: Do we resample this everytime?
                                              # TODO: Is TF resampling everytime?
-z = mu_q + sigma_q*ep # element-wise
+z = tf.expand_dims(mu_q + sigma_q*ep, 0) # element-wise ops, expand to be 1xJ
 
 # Weights
 W_hidden_d = tf.Variable(tf.zeros([J, HIDDEN_LAYERS_DEC]))
@@ -85,7 +85,7 @@ KL_prior_regularizer = None # The KL divergence between the variational approx.
                             # The closed-form eq. is derived in [1]: Appedix B
 
 pred_reconstr_err =   None  # Measures log p_theta(x_i|z)
-ELBO_estimate = tf.add(KL_prior_regularizer, pred_reconst_err)
+ELBO_estimate = KL_prior_regularizer + pred_reconst_err
 
 # TODO: Using Adagrad as per [1] but was written before ADAM (by same author!)
 #       Later transition to ADAM
