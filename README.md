@@ -5,7 +5,7 @@ Fun with Variational Autoencoder neural nets.
 
 ### What is a "Variational Autoencoder"?
 
-A variational autoencoder is an encoder-decoder pair of neural networks that are designed to perform variational inference. This means that the objective (error) function that the neural network is trying to optimize is essentially the ELBO, which in turn decreases the "KL-divergence" (a difference measure between the approximating distribution and the true posterior). An in-depth introduction to Variational Inference can be found in \[2\] and the auto-encoding framework in \[1\].
+A variational autoencoder is an encoder-decoder pair of neural networks that are designed to perform variational inference. This means that the objective function that the neural network is trying to optimize is (an estimate of) the evidence lower bound ("ELBO"), which in turn decreases the "KL-divergence" (a measure of the difference in information between the distributions, or "relative entropy") between an approximative distribution (q(z|x)) and the true posterior (p(z|x)). A quick (but technical) introduction to Variational Inference can be found in \[2\] and the auto-encoding framework for VI in \[1\].
 
 ### What can we do with Variational Autoencoders?
 
