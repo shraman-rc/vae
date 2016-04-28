@@ -30,18 +30,16 @@ b_hidden_e = tf.Variable(tf.zeros([HIDDEN_LAYERS_ENC]))
 b_mu_q = tf.Variable(tf.zeros([J]))
 b_log_sigma_q = tf.Variable(tf.zeros([J]))
 
-# Activations
+# Activations/Outputs
 h_e = tf.tanh(  # TODO: try ReLU instead of tanh?
         tf.matmul(x_batch, W_hidden_e) + b_hidden_e)
-mu_q = tf.reduce_mean( # Average mu's produced by each datapoint in minibatch
-                       #    into single mu to parameterize latent approx. q(z)
-        tf.matmul(h_e, W_mu_q) + b_mu_q, 0)
-sigma_q = tf.sqrt(tf.exp( # exp/sqrt because this is log variance estimate
-                          # TODO: Why do we use log variance? Do we expect
-                          # extremely high/low values? Does it help with
-                          # vanishing weights phenomenon?
-        tf.reduce_mean(
-            tf.matmul(h_e, W_log_sigma_q) + b_log_sigma_q, 0)))
+mu_q = tf.matmul(h_e, W_mu_q) + b_mu_q
+log_sigma_sq_q = tf.matmul(h_e, W_log_sigma_q) + b_log_sigma_q)
+    # TODO: Why do we use log variance? Do we expect
+    # extremely high/low values? Does it help with
+    # vanishing weights phenomenon?
+sigma_sq_q = tf.exp(log_sigma_sq_q)
+sigma_q = tf.sqrt(sigma_sq_q)
 
 # Decoder construction (Gaussian) -- cf. [1]: Appendix C
 
@@ -50,9 +48,9 @@ sigma_q = tf.sqrt(tf.exp( # exp/sqrt because this is log variance estimate
 #   For a Gaussian 'q' we have: g(ep,x) = mu + sigma*ep, and p(ep) = N(0,I)
 # Note: Element-wise univariate Gaussian sampling <=> multivariate Gaussian sampling
 # TODO: Introduce L later here
-ep = tf.random_normal([J], mean=0, stddev=1) # TODO: Do we resample this everytime?
-                                             # TODO: Is TF resampling everytime?
-z = tf.expand_dims(mu_q + sigma_q*ep, 0) # element-wise ops, expand to be 1xJ
+ep = tf.random_normal([M, J], mean=0, stddev=1) # TODO: Do we resample this everytime?
+                                                # TODO: Is TF resampling everytime?
+z = mu_q + sigma_q*ep # element-wise ops, z is MxJ, one latent per datapoint
 
 # Weights
 W_hidden_d = tf.Variable(tf.zeros([J, HIDDEN_LAYERS_DEC]))
@@ -64,28 +62,32 @@ b_hidden_d = tf.Variable(tf.zeros([HIDDEN_LAYERS_DEC]))
 b_mu_p = tf.Variable(tf.zeros([MNIST_FLAT_DIM]))
 b_log_sigma_p = tf.Variable(tf.zeros([MNIST_FLAT_DIM]))
 
-# Activations
+# Activations/Outputs
 h_d = tf.tanh(  # TODO: try ReLU instead of tanh?
         tf.matmul(z, W_hidden_d) + b_hidden_d)
-mu_p = tf.reduce_mean( # Average mu's produced by each Monte Carlo sample of q(z)
-                       #    into single mu to parameterize generative p(x|z)
-        tf.matmul(h_d, W_mu_p) + b_mu_p, 0)
-sigma_p = tf.sqrt(tf.exp( # exp/sqrt because this is log variance estimate
-                          # TODO: Why do we use log variance? Do we expect
-                          # extremely high/low values? Does it help with
-                          # vanishing weights phenomenon?
-        tf.reduce_mean(
-            tf.matmul(h_d, W_log_sigma_p) + b_log_sigma_p, 0)))
+mu_p = tf.matmul(h_d, W_mu_p) + b_mu_p
+log_sigma_sq_p = tf.matmul(h_d, W_log_sigma_p) + b_log_sigma_p)
+    # TODO: Why do we use log variance? Do we expect
+    # extremely high/low values? Does it help with
+    # vanishing weights phenomenon?
+sigma_p = tf.sqrt(tf.exp(log_sigma_sq_p))
 
 # ELBO estimator construction
 
-KL_prior_regularizer = None # The KL divergence between the variational approx.
-                            # and the prior p_theta(z) acts as a regularizing
-                            # term so that the latent variables don't overfit.
-                            # The closed-form eq. is derived in [1]: Appedix B
+# The KL divergence between the variational approx. and the prior p_theta(z) acts as
+#   a regularizing term so that the latent variables don't overfit. The closed-form
+#   eq. is derived in [1]: Appedix B
+# TODO: Why would overfitting be a problem in the auto-encoding scenario? Wouldn't
+#   overfitting lead to a better likelihood lower bound measure used in [1]'s experiments?
+KL_prior_regularizer = 0.5 * tf.reduce_sum(1 + log_sigma_sq_q - mu_q - sigma_sq_q, 1)
+pred_reconstr_err =   # Measures log p_theta(x_i|z) # TODO: Try a different loss function? Cross entropy?
 
-pred_reconstr_err =   None  # Measures log p_theta(x_i|z)
-ELBO_estimate = KL_prior_regularizer + pred_reconst_err
+# ^ TODO: CHANGE TO BERNOULLI AND COMPARTMENTALIZE CODE (backends.py) WE TAKE ELEMENT WISE SIGMOID TO PARAMETERIZE
+# MULTIVARIATE BERNOULLI (i.e. pixel values in image - note will need to rescale if doing on regular images) BUT
+# HOW DOES STEEPNESS AFFECT LEARNING?
+
+# TODO: Apply batch normalization here as in [3]? See effects on Adagrad, SGD, and ADAM separately?
+ELBO_estimate = tf.reduce_mean(KL_prior_regularizer + pred_reconst_err) # Mean val over minibatch
 
 # TODO: Using Adagrad as per [1] but was written before ADAM (by same author!)
 #       Later transition to ADAM
