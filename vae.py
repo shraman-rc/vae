@@ -85,7 +85,7 @@ KL_prior_regularizer = None # The KL divergence between the variational approx.
                             # The closed-form eq. is derived in [1]: Appedix B
 
 pred_reconstr_err =   None  # Measures log p_theta(x_i|z)
-ELBO_estimate = KL_prior_regularizer + pred_reconst_err
+ELBO_estimate = KL_prior_regularizer + pred_reconstr_err
 
 # TODO: Using Adagrad as per [1] but was written before ADAM (by same author!)
 #       Later transition to ADAM
