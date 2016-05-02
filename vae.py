@@ -52,8 +52,7 @@ decoder = BernoulliMLP(z_batch)
 #    # TODO: Why do we use log variance? Do we expect
 #    # extremely high/low values? Does it help with
 #    # vanishing weights phenomenon?
-#sigma_sq_q = tf.exp(log_sigma_sq_q)
-#sigma_q = tf.sqrt(sigma_sq_q)
+
 
 # Decoder construction (Bernoulli, for MNIST)
 
@@ -76,23 +75,25 @@ decoder = BernoulliMLP(z_batch)
 #    # extremely high/low values? Does it help with
 #    # vanishing weights phenomenon?
 
-# ELBO estimator construction
-sigma_p = tf.sqrt(tf.exp(log_sigma_sq_p))
-
-# The KL divergence between the variational approx. and the prior p_theta(z) acts as
-#   a regularizing term so that the latent variables don't overfit. The closed-form
+# The KL divergence between the variational approx. and the *prior* p_theta(z) acts as
+#   a regularizing term so that the latent distribution doesn't overfit. The closed-form
 #   eq. is derived in [1]: Appedix B
 # TODO: Why would overfitting be a problem in the auto-encoding scenario? Wouldn't
 #   overfitting lead to a better likelihood lower bound measure used in [1]'s experiments?
-KL_prior_regularizer = 0.5 * tf.reduce_sum(1 + log_sigma_sq_q - mu_q - sigma_sq_q, 1)
-pred_reconstr_err = lh.ll_bernoulli()  # Measures log p_theta(x_i|z) # TODO: Try a different loss function? Cross entropy?
+sigma_sq_q = tf.exp(encoder.out_params.log_var)
+sigma_q = tf.sqrt(sigma_sq_q)
+KL_regularizer = 0.5 * tf.reduce_sum(1 + log_sigma_sq_q - mu_q - sigma_sq_q, 1)
 
-# ^ TODO: CHANGE TO BERNOULLI AND COMPARTMENTALIZE CODE (backends.py) WE TAKE ELEMENT WISE SIGMOID TO PARAMETERIZE
-# MULTIVARIATE BERNOULLI (i.e. pixel values in image - note will need to rescale if doing on regular images) BUT
-# HOW DOES STEEPNESS AFFECT LEARNING?
+# The 'reconstruction error' (predictive likelihood): log p_theta(x_batch|z)
+# TODO: Try a different loss function? Cross entropy?
+reconstr_err = lh.ll_bernoulli(x_batch, decoder.out_params.p)
 
-# TODO: Apply batch normalization here as in [3]? See effects on Adagrad, SGD, and ADAM separately?
-ELBO_estimate = tf.reduce_mean(KL_prior_regularizer + pred_reconst_err) # Mean val over minibatch
+# TODO: WE TAKE ELEMENT WISE SIGMOID TO PARAMETERIZE MULTIVARIATE BERNOULLI (i.e. pixel values in image - note will need to rescale if doing on regular images) BUT HOW DOES STEEPNESS OF SIGMOID AFFECT LEARNING? Does it take longer for theta (Bernoulli probs) to converge?
+
+# ELBO estimator construction
+# TODO: Apply batch normalization here as in [3]?
+# TODO: See effects on Adagrad, SGD, and ADAM separately?
+ELBO_estimate = tf.reduce_mean(KL_regularizer + reconst_err) # Mean val over minibatch
 
 # TODO: Using Adagrad as per [1] but was written before ADAM (by same author!)
 #       Later transition to ADAM

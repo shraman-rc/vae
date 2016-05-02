@@ -44,7 +44,7 @@ class MLP(object):
             self.biases.append(tf.Variable(tf.zeros([out_dim])))
 
         # Generate output vars (parameters of a distribution)
-        self.params = self._gen_params()
+        self.out_params = self._gen_params()
 
 
 class BernoulliMLP(MLP):
