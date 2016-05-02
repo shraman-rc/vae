@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+from likelihoods import ll_bernoulli, ll_gaussian
 
 MNIST_FLAT_DIM = 784    # Flattened dimension of MNIST images, 'x'
 HIDDEN_LAYERS_ENC = 500
@@ -80,7 +81,7 @@ sigma_p = tf.sqrt(tf.exp(log_sigma_sq_p))
 # TODO: Why would overfitting be a problem in the auto-encoding scenario? Wouldn't
 #   overfitting lead to a better likelihood lower bound measure used in [1]'s experiments?
 KL_prior_regularizer = 0.5 * tf.reduce_sum(1 + log_sigma_sq_q - mu_q - sigma_sq_q, 1)
-pred_reconstr_err =   # Measures log p_theta(x_i|z) # TODO: Try a different loss function? Cross entropy?
+pred_reconstr_err = ll_bernoulli()  # Measures log p_theta(x_i|z) # TODO: Try a different loss function? Cross entropy?
 
 # ^ TODO: CHANGE TO BERNOULLI AND COMPARTMENTALIZE CODE (backends.py) WE TAKE ELEMENT WISE SIGMOID TO PARAMETERIZE
 # MULTIVARIATE BERNOULLI (i.e. pixel values in image - note will need to rescale if doing on regular images) BUT
