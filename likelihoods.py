@@ -6,7 +6,5 @@ Notation:
     - 'll' stands for 'log likelihood'
 '''
 
-BernoulliParam = namedtuple('BernoulliParam', ['p'])
-
 def ll_bernoulli():
     return 
