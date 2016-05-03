@@ -1,46 +1,52 @@
 import tensorflow as tf
 import numpy as np
+import click as cl
 
 from nets import BernoulliMLP, GaussianMLP
 import likelihoods as lh
 
 MNIST_FLAT_DIM = 784    # Flattened dimension of MNIST images, 'x'
-HIDDEN_LAYERS_ENC = 500
-HIDDEN_LAYERS_DEC = 200
+HIDDEN_LAYER_ENC = 500
+HIDDEN_LAYER_DEC = 200
 
 
 # Experimental Parameters
 M = 100         # minibatch size
 L = 1           # MCE samples
 J = 10          # Dimensionality of latent space, 'z'
-T = 10000       # Training iterations
+T = 2000        # Training iterations
 ADG_RATE = 0.01 # Adagrad global learning rate (chosen from
                 #   {0.01,0.02,0.1} -- cf. [1]: Section 5)
 
 # Inputs - mini-batches of (flattened) images
 x_batch = tf.placeholder(tf.float32, shape=[M, MNIST_FLAT_DIM])
 
-encoder = GaussianMLP(x_batch) # Gaussian q(z|x)
+encoder = GaussianMLP(x_batch, [HIDDEN_LAYER_ENC], J) # Gaussian q(z|x)
 
 # Bridge between encoder and decoder
+mu_q = encoder.out_params.mu
+log_var_q = encoder.out_params.log_var
+var_q = tf.exp(log_var_q)
+sigma_q = tf.sqrt(var_q)
 # Latent space samples w/ reparameterization (z = g(ep,x); ep ~ p(ep))
 #   This outsources randomness to auxiliary r.v. (see [1]: Sec 2.4)
 #   For a Gaussian 'q' we have: g(ep,x) = mu + sigma*ep, and p(ep) = N(0,I)
 # Note: Element-wise univariate Gaussian sampling <=> multivariate Gaussian sampling
 # TODO: Introduce L later here
-ep = tf.random_normal([M, J], mean=0, stddev=1) # TODO: Is TF resampling everytime?
-z_batch = mu_q + sigma_q*ep # element-wise ops, z_batch has latent per datapoint (MxJ)
+# TODO: Is TF resampling ep everytime?
+ep = tf.random_normal([M, J], mean=0, stddev=1)
+z_batch = mu_q + sigma_q*ep # one latent per datapoint (MxJ)
 
-decoder = BernoulliMLP(z_batch)
+decoder = BernoulliMLP(z_batch, [HIDDEN_LAYER_DEC], MNIST_FLAT_DIM)
 
 #
 ## Weights
-#W_hidden_e = tf.Variable(tf.zeros([MNIST_FLAT_DIM, HIDDEN_LAYERS_ENC]))
-#W_mu_q = tf.Variable(tf.zeros([HIDDEN_LAYERS_ENC, J]))
-#W_log_sigma_q = tf.Variable(tf.zeros([HIDDEN_LAYERS_ENC, J]))
+#W_hidden_e = tf.Variable(tf.zeros([MNIST_FLAT_DIM, HIDDEN_LAYER_ENC]))
+#W_mu_q = tf.Variable(tf.zeros([HIDDEN_LAYER_ENC, J]))
+#W_log_sigma_q = tf.Variable(tf.zeros([HIDDEN_LAYER_ENC, J]))
 #
 ## Biases
-#b_hidden_e = tf.Variable(tf.zeros([HIDDEN_LAYERS_ENC]))
+#b_hidden_e = tf.Variable(tf.zeros([HIDDEN_LAYER_ENC]))
 #b_mu_q = tf.Variable(tf.zeros([J]))
 #b_log_sigma_q = tf.Variable(tf.zeros([J]))
 #
@@ -57,12 +63,12 @@ decoder = BernoulliMLP(z_batch)
 # Decoder construction (Bernoulli, for MNIST)
 
 ## Weights
-#W_hidden_d = tf.Variable(tf.zeros([J, HIDDEN_LAYERS_DEC]))
-#W_mu_p = tf.Variable(tf.zeros([HIDDEN_LAYERS_DEC, MNIST_FLAT_DIM]))
-#W_log_sigma_p = tf.Variable(tf.zeros([HIDDEN_LAYERS_DEC, MNIST_FLAT_DIM]))
+#W_hidden_d = tf.Variable(tf.zeros([J, HIDDEN_LAYER_DEC]))
+#W_mu_p = tf.Variable(tf.zeros([HIDDEN_LAYER_DEC, MNIST_FLAT_DIM]))
+#W_log_sigma_p = tf.Variable(tf.zeros([HIDDEN_LAYER_DEC, MNIST_FLAT_DIM]))
 #
 ## Biases
-#b_hidden_d = tf.Variable(tf.zeros([HIDDEN_LAYERS_DEC]))
+#b_hidden_d = tf.Variable(tf.zeros([HIDDEN_LAYER_DEC]))
 #b_mu_p = tf.Variable(tf.zeros([MNIST_FLAT_DIM]))
 #b_log_sigma_p = tf.Variable(tf.zeros([MNIST_FLAT_DIM]))
 #
@@ -80,9 +86,7 @@ decoder = BernoulliMLP(z_batch)
 #   eq. is derived in [1]: Appedix B
 # TODO: Why would overfitting be a problem in the auto-encoding scenario? Wouldn't
 #   overfitting lead to a better likelihood lower bound measure used in [1]'s experiments?
-sigma_sq_q = tf.exp(encoder.out_params.log_var)
-sigma_q = tf.sqrt(sigma_sq_q)
-KL_regularizer = 0.5 * tf.reduce_sum(1 + log_sigma_sq_q - mu_q - sigma_sq_q, 1)
+KL_regularizer = 0.5 * tf.reduce_sum(1 + log_var_q - mu_q - var_q, 1)
 
 # The 'reconstruction error' (predictive likelihood): log p_theta(x_batch|z)
 # TODO: Try a different loss function? Cross entropy?
@@ -93,17 +97,25 @@ reconstr_err = lh.ll_bernoulli(x_batch, decoder.out_params.p)
 # ELBO estimator construction
 # TODO: Apply batch normalization here as in [3]?
 # TODO: See effects on Adagrad, SGD, and ADAM separately?
-ELBO_estimate = tf.reduce_mean(KL_regularizer + reconst_err) # Mean val over minibatch
+ELBO_estimate = tf.reduce_mean(KL_regularizer + reconstr_err) # Mean val over minibatch
 
 # TODO: Using Adagrad as per [1] but was written before ADAM (by same author!)
 #       Later transition to ADAM
-# Notice that we are maximizing (not minimizing) the variational lower bound
-train_op = tf.train.Adagrad(ADG_RATE).maximize(ELBO_estimate)
+# Notice that we are minimizing the negative (i.e. maximizing) the variational
+#   lower bound
+train_op = tf.train.AdagradOptimizer(ADG_RATE).minimize(-ELBO_estimate)
 
 # Train on MNIST
 from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-for _ in range(T):
-    pass 
+with tf.Session() as sess:
+    sess.run(tf.initialize_all_variables())
+    for t in range(T):
+        cl.secho('Minibatch {}'.format(t), fg='green', bold=False)
+        batch = mnist.train.next_batch(M)
+        train_op.run(feed_dict={x_batch: batch[0]})
 
-print("Success!")
+# TODO: When implementating Variational Dropout, can use tf.nn.dropout
+# TODO: Record error vectors
+
+cl.secho('Success!', fg='green', bold=True)

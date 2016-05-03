@@ -58,8 +58,6 @@ class BernoulliMLP(MLP):
         Setup TF computation graph (neural net) to compute the value that
             parameterizes the Bernoulli distribution
         '''
-        param = BernoulliParam()
-
         # TODO: Extend this to be multilayer
         hidden_weights, hidden_bias, hidden_size = \
             self.weights[0], self.biases[0], self.layer_sizes[0]
@@ -67,13 +65,13 @@ class BernoulliMLP(MLP):
         self.weights_out = tf.Variable(tf.zeros([hidden_size, self.out_dim]))
 
         # TODO: Tru ReLU instead of tanh
-        param.p = tf.sigmoid(
+        p = tf.sigmoid(
             tf.matmul(
                 tf.tanh(tf.matmul(self.input_batch, hidden_weights) + hidden_bias),
                 self.weights_out)
             + self.bias_out)
 
-        return param
+        return BernoulliParam(p)
 
 
 class GaussianMLP(MLP):
@@ -90,8 +88,6 @@ class GaussianMLP(MLP):
         NOTE: The variance parameter output is actually log(variance) as
             suggested by [1]
         '''
-        param = GaussianParam()
-
         # TODO: Extend this to be multilayer
         hidden_weights, hidden_bias, hidden_size = \
             self.weights[0], self.biases[0], self.layer_sizes[0]
@@ -103,10 +99,10 @@ class GaussianMLP(MLP):
         # TODO: Tru ReLU instead of tanh
         h = tf.tanh(
             tf.matmul(self.input_batch, hidden_weights) + hidden_bias)
-        param.mu = tf.matmul(h, self.weights_mu) + self.bias_mu
-        param.log_var = tf.matmul(h, self.weights_logvar) + self.bias_logvar
+        mu = tf.matmul(h, self.weights_mu) + self.bias_mu
+        log_var = tf.matmul(h, self.weights_logvar) + self.bias_logvar
             # TODO: Why do we use log variance? Do we expect
             # extremely high/low values? Does it help with
             # vanishing weights phenomenon?
 
-        return param
+        return GaussianParam(mu,log_var)
