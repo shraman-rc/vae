@@ -8,16 +8,17 @@ architecture: {
         n_layers: 1,
         n_units: [200],
         distribution: Bernoulli
-    }
+    },
+    activation: "ReLU"
 }
 
 dims: {
     data: 784, # MNIST, flattened
-    z: 10      # Latent space approximation
+    latent: 10
 }
 
 optimization: {
-    optimizer: Adagrad,
+    type: Adagrad,
     Adagrad_rate: 0.01,
     Adam_rate: 0.001
 }

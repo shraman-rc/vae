@@ -12,6 +12,8 @@ Notation:
 '''
 
 BARRIER = 1e-8 # Prevents evaluation of log(0) = nan
+# TODO: Bug: have 1e-10 creates nan's for likelihood in this implementation
+#       but not in Metzen's
 
 def ll_bernoulli(data, rho):
     '''
