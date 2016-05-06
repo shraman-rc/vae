@@ -2,7 +2,7 @@
 
 Fun with Variational Autoencoder neural nets. (Project submission for Tamara Broderick's "Bayesian Inference" (6.882) course at MIT).
 
-Authors: Shraman Ray Chaudhuri
+Ping me with any questions at shraman (at) mit (dot) edu! This repo will be continually updated with some cool (experimental) uses for variational inference performed by neural networks.
 
 ## Introduction
 
@@ -26,9 +26,7 @@ A variational autoencoder is an encoder-decoder pair of neural networks that are
 The vanilla VAE has lots of potential but there are a few shortcomings that make their convergence rate suboptimal with respect to the state-of-the-art. Here are improvements that have been applied (so far) to this repository:
 
 ### Statistical Optimizations
-1. Xavier Initialization
-2. Variational Dropout
-5. Reparameterization I: Reducing MCE Variance
+#### Reparameterization I: Reducing MCE Variance
 
 When performing Variational Inference, there are two approaches to finding the gradient of the lower bound (which is an intractable expectation over q(z)): (1) find an analytic (and computationally attractive) closed form of the gradient w.r.t. variational parameters, or (2) Monte-Carlo sampling 'z ~ q(z)' and using these z's to estimate the expectation of a function (in this case, a gradient). Unfortunately, (1) is oftentimes infeasible when we want to remove the constraint of conjugacy and (2) is troublesome when we naively perform expectation over the gradients of the random samples since this estimator exhibits high variance [citation].
 
@@ -38,18 +36,27 @@ To ameliorate this from a purely statistical point of view, we reformulate (2) n
 
 Having approached this from a purely statistical point of view, we can expect better performance with evidence *grounded in theory*, whereas SGD is still missing substantial theoretical justification.
 
-6. Reparameterization II: Reducing Variance at Scale
-7. Streaming VB
+#### Reparameterization II: Reducing Variance at Scale
+
+#### Variational Dropout
+
+#### Natural Gradients
+
+#### Xavier Initialization
+
+#### Streaming VB
+
+#### Posterior Predictive Checking
+    - Different error function than just log p(x|z) for specific models (inspired by Bayesian Checking for Topic Models)
 
 ### Numerical Optimizations
-1. ADAM Optimizer
+#### ADAM Optimizer
 
-3. Batch Normalization
-8. ReLU Activation
-9. TF-Related Optimizations
-10. Natural Gradients
-11. Posterior Predictive Checking
-    - Different error function than just log p(x|z) for specific models (inspired by Bayesian Checking for Topic Models)
+#### Batch Normalization
+
+#### Activation Functions
+
+#### TF-Related Optimizations
 
 ## Future Work
 
