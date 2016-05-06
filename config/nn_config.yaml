@@ -1,0 +1,32 @@
+architecture: {
+    encoder: {
+        n_layers: 1,
+        n_units: [500],
+        distribution: Gaussian
+    },
+    decoder: {
+        n_layers: 1,
+        n_units: [200],
+        distribution: Bernoulli
+    }
+}
+
+dims: {
+    data: 784, # MNIST, flattened
+    z: 10      # Latent space approximation
+}
+
+optimization: {
+    optimizer: Adagrad,
+    Adagrad_rate: 0.01,
+    Adam_rate: 0.001
+}
+
+training: {
+    batch_size: 100,
+    n_iters: 2000
+}
+
+AEVB: { # Params specified in [1]
+    L: 1
+}

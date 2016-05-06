@@ -11,6 +11,8 @@ Notation:
     - 'll' stands for 'log likelihood'
 '''
 
+BARRIER = 1e-8 # Prevents evaluation of log(0) = nan
+
 def ll_bernoulli(data, rho):
     '''
     Params:
@@ -30,7 +32,7 @@ def ll_bernoulli(data, rho):
     # Taking the log of this (only the probabilities rho_i, not the
     # 0-1 coefficients x_i) we get our log-likelihood:
     #   \sum_i {x_i*log(rho_i) + (1-x_i)*log(1-rho_i)}
-    return tf.reduce_sum(data*tf.log(1e-10 + rho) + (1-data)*tf.log(1e-10 + 1-rho), 1)
+    return tf.reduce_sum(data*tf.log(BARRIER + rho) + (1-data)*tf.log(BARRIER + 1-rho), 1)
 
 def ll_gaussian(data, mu, log_var):
     '''
