@@ -1,6 +1,7 @@
-'''
-likelihoods.py: TF implementations of closed-form likelihoods given data/parameters
-'''
+""" likelihoods.py: TF implementations of closed-form likelihoods given data/parameters
+"""
+
+__author__ = "shraman-rc"
 
 import tensorflow as tf
 from collections import namedtuple
@@ -29,7 +30,7 @@ def ll_bernoulli(data, rho):
     # Taking the log of this (only the probabilities rho_i, not the
     # 0-1 coefficients x_i) we get our log-likelihood:
     #   \sum_i {x_i*log(rho_i) + (1-x_i)*log(1-rho_i)}
-    return tf.reduce_sum(data*tf.log(rho) + (1-data)*tf.log(1-rho), 1)
+    return tf.reduce_sum(data*tf.log(1e-10 + rho) + (1-data)*tf.log(1e-10 + 1-rho), 1)
 
 def ll_gaussian(data, mu, log_var):
     '''

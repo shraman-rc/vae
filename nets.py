@@ -1,8 +1,9 @@
-'''
-nets.py: Defines and constructs basic neural net architectures for the auto-encoder
+""" nets.py: Defines and recontructs basic neural net architectures for the auto-encoder
 
 Construction closely follows [1]: Appendix C
-'''
+"""
+
+__author__ = "shraman-rc"
 
 import tensorflow as tf
 import tf_helpers as tfh
@@ -67,7 +68,7 @@ class BernoulliMLP(MLP):
         # TODO: Tru ReLU instead of tanh
         p = tf.sigmoid(
             tf.matmul(
-                tf.tanh(tf.matmul(self.input_batch, hidden_weights) + hidden_bias),
+                tf.nn.relu(tf.matmul(self.input_batch, hidden_weights) + hidden_bias),
                 self.weights_out)
             + self.bias_out)
 
@@ -97,7 +98,7 @@ class GaussianMLP(MLP):
         self.weights_logvar = tf.Variable(tf.zeros([hidden_size, self.out_dim]))
 
         # TODO: Tru ReLU instead of tanh
-        h = tf.tanh(
+        h = tf.nn.relu(
             tf.matmul(self.input_batch, hidden_weights) + hidden_bias)
         mu = tf.matmul(h, self.weights_mu) + self.bias_mu
         log_var = tf.matmul(h, self.weights_logvar) + self.bias_logvar

@@ -16,6 +16,11 @@ A variational autoencoder is an encoder-decoder pair of neural networks that are
 
 ## Cool Stuff
 
+1. Application to Dirichlet Processes?
+
+    - Can we apply the reparameterization techniques to this AEVB framework?
+        [Derivation]
+
 ## Optimizations
 
 The vanilla VAE has lots of potential but there are a few shortcomings that make their convergence rate suboptimal with respect to the state-of-the-art. Here are improvements that have been applied (so far) to this repository:
