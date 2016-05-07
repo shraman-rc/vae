@@ -117,7 +117,7 @@ with tf.Session() as sess:
     titles = ["$\mathcal{L}(\phi,\\theta;x)$",
               "$KL(q_{\phi}(z|x)||p_{\\theta}(z))$",
               "$\log(p_{\\theta}(x|z))$"]
-    params = {"$\eta_{Adagrad}$": OPT["Adagrad_rate"],
+    params = {"$\eta_{%s}$" % OPT["type"]: OPT["{}_rate".format(OPT["type"])],
               "$Activation$": ARCH["activation"],
               "$Batch$ $Size$": TRAIN["batch_size"],
               "$MCE$ $Samples$": PARAMS["L"],
