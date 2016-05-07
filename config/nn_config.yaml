@@ -25,7 +25,7 @@ optimization: {
 
 training: {
     batch_size: 100,
-    n_iters: 2000
+    n_iters: 1000
 }
 
 AEVB: { # Params specified in [1]

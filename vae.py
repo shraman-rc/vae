@@ -105,12 +105,12 @@ with tf.Session() as sess:
              np.mean(log_var,0),
              np.mean(p,0))
         ELBOs[t] = ELBO; KLs[t] = -neg_KL; LLs[t] = ll
-        cl.secho('''ELBO (estimate): {}\n
-                    KL Div (prior): {}\n
-                    Likelihood: {}\n
-                    Mu: {}\n
-                    Log var:{}\n
-                    p: {}'''
+        cl.secho(("ELBO (estimate): {}\n"
+        "KL Div (prior): {}\n"
+        "Likelihood: {}\n"
+        "Mu: {}\n"
+        "Log var: {}\n"
+        "len(p): {}")
             .format(ELBO, -neg_KL, ll, mu, log_var, len(p)), fg='cyan')
 
     # Tests
