@@ -8,6 +8,9 @@ import numpy as np
 
 X_INIT=tf.contrib.layers.xavier_initializer(uniform=True, seed=0)
 
+def xavier_init(dims):
+    return X_INIT(dims)
+
 #tf.set_random_seed(0)
 #
 #def xavier_init(dims, constant=1):
@@ -18,8 +21,5 @@ X_INIT=tf.contrib.layers.xavier_initializer(uniform=True, seed=0)
 #    return tf.random_uniform((dims[0], dims[1]),
 #                             minval=low, maxval=high,
 #                             dtype=tf.float32)
-def xavier_init(dims):
-    return X_INIT(dims)
-
 def shape(t):
     return t.get_shape().as_list()

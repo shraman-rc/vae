@@ -10,6 +10,8 @@ import numpy as np
 import click as cl
 import yaml
 
+tf.set_random_seed(0)
+
 from nets import BernoulliMLP, GaussianMLP
 import likelihoods as lh
 import vis
@@ -28,7 +30,6 @@ OPT = config["optimization"]
 TRAIN = config["training"]
 PARAMS = config["AEVB"]
 
-tf.set_random_seed(0)
 
 # Inputs - mini-batches of (flattened) images
 x_batch = tf.placeholder(tf.float32, shape=[TRAIN["batch_size"], DIMS["data"]])
