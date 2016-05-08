@@ -15,7 +15,13 @@
             UPDATE: Also exacerbated by batch size. Gradient clipping ineffective
             when gradient becomes nan!
 
+            UPDATE: This problem is *super* sensitive to learning rate and highly
+            nondeterministic. At a learning of 0.016 (using Adam) gradients will
+            sometimes blow up to 3e+28 and when it doesn't, they will go no higher
+            than 100! However, there is much more stability across runs even at 0.015!
+
             TODO: Try value clipping of the KL divergence
+        - Refactor so that all variables are easily reference-able
 """
 
 __author__ = "shraman-rc"
