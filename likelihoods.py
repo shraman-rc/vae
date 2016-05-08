@@ -11,7 +11,7 @@ Notation:
     - 'll' stands for 'log likelihood'
 '''
 
-BARRIER = 1e-7 # Prevents evaluation of log(0) = nan
+BARRIER = 1e-9 # Prevents evaluation of log(0) = nan
 # TODO: Bug: have 1e-10 creates nan's for likelihood in this implementation
 #       but not in Metzen's
 # TODO: Effect is exacerbated by higher learning rates

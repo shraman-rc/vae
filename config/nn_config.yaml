@@ -20,13 +20,13 @@ dims: {
 optimization: {
     type: Adam,
     Adagrad_rate: 0.01,
-    Adam_rate: 0.01,
+    Adam_rate: 0.015,
     max_grad: 1000000
 }
 
 training: {
-    batch_size: 1,
-    n_iters: 100
+    batch_size: 100,
+    n_iters: 10
 }
 
 AEVB: { # Params specified in [1]

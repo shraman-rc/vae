@@ -11,6 +11,11 @@
 
             UPDATE: The network weights seem to be such that at the beginning, there
             is high variance output (exploding gradients when NN still malleable)
+
+            UPDATE: Also exacerbated by batch size. Gradient clipping ineffective
+            when gradient becomes nan!
+
+            TODO: Try value clipping of the KL divergence
 """
 
 __author__ = "shraman-rc"
@@ -92,10 +97,10 @@ elif OPT["type"].lower() == "adam":
 #ll_train_op = optimizer.minimize(-reconstr_err)
 # ...with clipped gradients:
 gvs = optimizer.compute_gradients(-ELBO_estimate)
-capped_gvs = gvs
-#capped_gvs = [(tf.clip_by_value(grad, -OPT["max_grad"], OPT["max_grad"]), var)
-#                for grad, var in gvs]
-grads = [grad for grad, var in capped_gvs]
+capped_gvs = [(tf.clip_by_value(grad, -OPT["max_grad"], OPT["max_grad"]), var)
+                for grad, var in gvs if grad != None]
+flat_grads = [tf.reshape(grad,[-1]) for grad, var in capped_gvs]
+max_grad = tf.reduce_max(tf.concat(0, flat_grads))
 train_op = optimizer.apply_gradients(capped_gvs)
 
 # Train on MNIST
@@ -114,22 +119,21 @@ with tf.Session() as sess:
     for t in iters:
         cl.secho('Minibatch {}'.format(t), fg='green', bold=False)
         batch = mnist.train.next_batch(TRAIN["batch_size"])
-        _, ELBO, ll, neg_KL, mu, log_var, epsilon, gradients = sess.run(
-            [train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep, grads[0]],
+        _, ELBO, ll, neg_KL, mu, log_var, epsilon, max_grad_val = sess.run(
+            [train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep, max_grad],
             feed_dict={x_batch: batch[0]})
        # _, ELBO, ll, neg_KL, mu, log_var, epsilon = sess.run(
        #     [vi_train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep],
        #     feed_dict={x_batch: batch[0]})
 
         # Perform some sort of reductions to be able to print
-        ELBO, neg_KL, ll, mu, log_var, epsilon, gradients = \
+        ELBO, neg_KL, ll, mu, log_var, epsilon = \
             (np.mean(ELBO),
              np.mean(neg_KL),
              np.mean(ll),
              mu[0],
              log_var[0],
-             epsilon[0],
-             np.max(gradients))
+             epsilon[0])
         ELBOs[t] = ELBO; KLs[t] = -neg_KL; LLs[t] = ll
 
         # Print stats
@@ -139,8 +143,8 @@ with tf.Session() as sess:
         "Mu: {}\n"
         "Log var: {}\n"
         "Epsilon: {}\n"
-        "Grads: {}")
-            .format(ELBO, -neg_KL, ll, mu, log_var, epsilon, gradients), fg='cyan')
+        "Max grad: {}")
+            .format(ELBO, -neg_KL, ll, mu, log_var, epsilon, max_grad_val), fg='cyan')
 
     # Graph
     titles = ["$\mathcal{L}(\phi,\\theta;x)$",
