@@ -4,8 +4,6 @@ Fun with Variational Autoencoder neural nets.
 
 Ping me with any questions at shraman (at) mit (dot) edu! This repo will be continually updated with some cool (experimental) uses for variational inference performed by neural networks.
 
-This repo is also a project submission for Tamara Broderick's "Bayesian Inference" (6.882) course at MIT.
-
 ## Introduction
 
 ### What is a "Variational Autoencoder"?
@@ -62,9 +60,11 @@ Having approached this from a purely statistical point of view, we can expect be
 
 #### TF-Related Optimizations
 
-## Future Work
+## Work in Progress
 
-\[Stay tuned\]
+### Applying AEVB to LDA (Topic Models)
+
+I am currently working on deriving the reparameterization of the variational inference model introduced for LDA in [6,8]. This also requires deriving a closed-form for the KL-divergence w.r.t. to the prior of the parameters, which is more involved than the Gaussian derivation in [1].
 
 ## References
 \[1\] [_Auto-encoding Variational Bayes_](http://arxiv.org/abs/1312.6114); Kingma, Welling; NIPS 2014
@@ -80,3 +80,7 @@ Having approached this from a purely statistical point of view, we can expect be
 \[6\] [_Stochastic Variational Inference_](http://arxiv.org/pdf/1206.7051.pdf); Hoffman, Blei, Wang, Paisley; JMLR 2013
 
 \[7\] [_MCMC and Variational Inference: Bridging the Gap_](http://arxiv.org/pdf/1410.6460v4.pdf); Salimans, Kingma, Welling; JMLR 2015
+
+\[8\] [_Latent Dirichlet Allocation_](http://machinelearning.wustl.edu/mlpapers/paper_files/nips02-AA53.pdf); Blei, Ng, Jordan; NIPS 2002
+
+\[9\] [_Revisiting Natural Gradient for Deep Networks_](http://arxiv.org/pdf/1301.3584v7.pdf); Pascanu, Bengio; 
