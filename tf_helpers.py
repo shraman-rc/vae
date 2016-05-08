@@ -6,13 +6,16 @@ __author__ = "shraman-rc"
 import tensorflow as tf
 import numpy as np
 
+tf.set_random_seed(0)
+
 X_INIT=tf.contrib.layers.xavier_initializer(uniform=True, seed=0)
 
-def xavier_init(dims):
+def xavier(dims):
     return X_INIT(dims)
 
-#tf.set_random_seed(0)
-#
+def gaussian(dims):
+    return tf.random_normal(dims)
+
 #def xavier_init(dims, constant=1):
 #    """ Xavier initialization of network weights"""
 #    # https://stackoverflow.com/questions/33640581/how-to-do-xavier-initialization-on-tensorflow
