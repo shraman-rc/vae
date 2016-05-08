@@ -60,6 +60,8 @@ Having approached this from a purely statistical point of view, we can expect be
 
 #### TF-Related Optimizations
 
+During the first few training phases, the optimizers derive large gradients for the network (exploding gradients). This was a problem since even small values of the log of the variance (~18) would result in enormous KL-Divergence blow ups since there is a variance term which, even with an encoder output of just 18, would be e^18. This exponential growth of the objective function does not pair well with exploding gradients. One obvious solution would be to add a larger 'log barrier' so that the log-likelihood term would always have a non-neglible value within the log, therefore counteracting the KL-Divergence term. This, however, would result in early annealing of the objective function so that future iterations would see little to no improvement. To counteract both problems (exploding gradients at the beginning vs. early annealing near the end), we manually compute the gradients and cap their values to something reasonable so that early stages do not result in overflow, but later stages remain unaffected.
+
 ## Work in Progress
 
 ### Applying AEVB to LDA (Topic Models)
@@ -83,4 +85,4 @@ I am currently working on deriving the reparameterization of the variational inf
 
 \[8\] [_Latent Dirichlet Allocation_](http://machinelearning.wustl.edu/mlpapers/paper_files/nips02-AA53.pdf); Blei, Ng, Jordan; NIPS 2002
 
-\[9\] [_Revisiting Natural Gradient for Deep Networks_](http://arxiv.org/pdf/1301.3584v7.pdf); Pascanu, Bengio; 
+\[9\] [_Revisiting Natural Gradient for Deep Networks_](http://arxiv.org/pdf/1301.3584v7.pdf); Pascanu, Bengio; ICLR 2014

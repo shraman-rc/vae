@@ -1,6 +1,16 @@
 #!/usr/bin/python
 
 """ vae.py: Run the Variational Auto-encoder.
+
+    TODO:
+        - Incorporate L (MC samples) without blowing up the decoder variable count
+        - There's a blow-up of the log_var output of the encoder which makes
+            the KL-divergence term of the error function go to infinity since there
+            is a var term (where var = e^{log_var}). This seems to be irreversible
+            when the learning rate is high.
+
+            UPDATE: The network weights seem to be such that at the beginning, there
+            is high variance output (exploding gradients when NN still malleable)
 """
 
 __author__ = "shraman-rc"
@@ -45,7 +55,6 @@ sigma_q = tf.sqrt(var_q)
 
 # Latent space samples w/ reparameterization (z = g(ep,x); ep ~ p(ep))
 #   Note: Element-wise univariate Gaussian sampling <=> multivariate Gaussian sampling
-# TODO: Introduce L later here
 ep = tf.random_normal([TRAIN["batch_size"], DIMS["latent"]], mean=0, stddev=1)
 z_batch = mu_q + sigma_q*ep # one latent per datapoint (MxJ)
 
@@ -56,7 +65,7 @@ decoder = BernoulliMLP(z_batch, ARCH["decoder"]["n_units"], DIMS["data"])
 #   doesn't overfit. The closed-form eq. is derived in [1]: Appedix B
 # TODO: Why would overfitting be a problem in the auto-encoding scenario? Wouldn't
 #   overfitting lead to a better likelihood lower bound measure used in [1]'s experiments?
-KL_regularizer = 0.5 * tf.reduce_sum(1 + log_var_q - mu_q**2 - var_q, 1)
+KL_regularizer = 0.5 * tf.reduce_sum(1 + log_var_q - tf.square(mu_q) - var_q, 1)
 
 # The 'reconstruction error' (predictive likelihood): log p_theta(x_batch|z)
 # TODO: Try a different loss function? Cross entropy?
@@ -78,7 +87,16 @@ elif OPT["type"].lower() == "adam":
 
 # Notice that we are minimizing the negative (i.e. maximizing) the variational
 #   lower bound
-train_op = optimizer.minimize(-ELBO_estimate)
+#train_op = optimizer.minimize(-ELBO_estimate)
+#vi_train_op = optimizer.minimize(-KL_regularizer)
+#ll_train_op = optimizer.minimize(-reconstr_err)
+# ...with clipped gradients:
+gvs = optimizer.compute_gradients(-ELBO_estimate)
+capped_gvs = gvs
+#capped_gvs = [(tf.clip_by_value(grad, -OPT["max_grad"], OPT["max_grad"]), var)
+#                for grad, var in gvs]
+grads = [grad for grad, var in capped_gvs]
+train_op = optimizer.apply_gradients(capped_gvs)
 
 # Train on MNIST
 T = TRAIN["n_iters"]
@@ -90,31 +108,41 @@ LLs = np.zeros(T)
 
 with tf.Session() as sess:
     sess.run(tf.initialize_all_variables())
-    # Train TODO: Move into MLP class
     iters = xrange(T)
+
+    # Train TODO: Move into MLP class
     for t in iters:
         cl.secho('Minibatch {}'.format(t), fg='green', bold=False)
         batch = mnist.train.next_batch(TRAIN["batch_size"])
-        _, ELBO, ll, neg_KL, mu, log_var, p = sess.run(
-            [train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, decoder.out_params.p],
+        _, ELBO, ll, neg_KL, mu, log_var, epsilon, gradients = sess.run(
+            [train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep, grads[0]],
             feed_dict={x_batch: batch[0]})
-        ELBO, neg_KL, ll, mu, log_var, p = \
+       # _, ELBO, ll, neg_KL, mu, log_var, epsilon = sess.run(
+       #     [vi_train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep],
+       #     feed_dict={x_batch: batch[0]})
+
+        # Perform some sort of reductions to be able to print
+        ELBO, neg_KL, ll, mu, log_var, epsilon, gradients = \
             (np.mean(ELBO),
              np.mean(neg_KL),
              np.mean(ll),
-             np.mean(mu,0),
-             np.mean(log_var,0),
-             np.mean(p,0))
+             mu[0],
+             log_var[0],
+             epsilon[0],
+             np.max(gradients))
         ELBOs[t] = ELBO; KLs[t] = -neg_KL; LLs[t] = ll
+
+        # Print stats
         cl.secho(("ELBO (estimate): {}\n"
         "KL Div (prior): {}\n"
         "Likelihood: {}\n"
         "Mu: {}\n"
         "Log var: {}\n"
-        "len(p): {}")
-            .format(ELBO, -neg_KL, ll, mu, log_var, len(p)), fg='cyan')
+        "Epsilon: {}\n"
+        "Grads: {}")
+            .format(ELBO, -neg_KL, ll, mu, log_var, epsilon, gradients), fg='cyan')
 
-    # Tests
+    # Graph
     titles = ["$\mathcal{L}(\phi,\\theta;x)$",
               "$KL(q_{\phi}(z|x)||p_{\\theta}(z))$",
               "$\log(p_{\\theta}(x|z))$"]
@@ -128,6 +156,5 @@ with tf.Session() as sess:
     
 
 # TODO: When implementating Variational Dropout, can use tf.nn.dropout
-# TODO: Record error vectors
 
 cl.secho('Success!', fg='green', bold=True)
