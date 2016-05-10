@@ -18,6 +18,9 @@
             sometimes blow up to 3e+28 and when it doesn't, they will go no higher
             than 100! However, there is much more stability across runs even at 0.015!
 
+            UPDATE: Also sensitive to latent space dimensionality changes (reduction
+            from 10 -> 2 made it go haywire even with Adam rate of 0.01)
+
             TODO: Try value clipping of the KL divergence. Norm clipping too?
         - We use output of sigmoid to parameterize the multivariate Bernoulli.
             Does its steepeness affect learning?
@@ -26,11 +29,12 @@
             - Cross entropy
         - Quantitatively assess Adagrad, SGD, Adam performance
         - Use tf.nn.dropout to perform Variational Dropout
+        - Other datasets besides MNIST
         - Examples:
             - DRAW network
             - Generative adversarial network
             - Music composition network (similar to DRAW)
-            - Artistic network (similar to DRAW)
+            - Picasso network (similar to DRAW)
 """
 
 __author__ = "shraman-rc"
@@ -42,8 +46,11 @@ import click as cl
 from nets import BernoulliMLP, GaussianMLP
 import likelihoods as lh
 
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 
 tf.set_random_seed(0)
+
 
 class VAE(object):
 
@@ -113,6 +120,9 @@ class VAE(object):
         self.max_grad = tf.reduce_max(tf.concat(0, flat_grads))
         self.train_op = self.optimizer.apply_gradients(capped_gvs)
 
+        # Default session to use for operations
+        self.sess = tf.InteractiveSession()
+
 
     def _train_step(self, sess, data, verbose=True):
         ''' Common helper to run individual training steps, see _train()
@@ -177,13 +187,10 @@ class VAE(object):
                 - iters: Number of training iteration per epoch
                 - mbsize: Number of datapoints per minibatch
                 - sess: TF session to use if already instantiated one
-                    if None, will use temporary session
+                    if None, will use self.sess (InteractiveSession)
                 - verbose: Print training progress after each timestep
         '''
         # Train on MNIST
-        from tensorflow.examples.tutorials.mnist import input_data
-        mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-
         # To keep track of progress
         progress = {}
         progress["ELBO"] = np.zeros(iters)
@@ -212,11 +219,43 @@ class VAE(object):
         '''
         iters = iters or self.TRAIN["n_iters"]
         mbsize = mbsize or self.TRAIN["batch_size"]
+        sess = sess or self.sess
 
-        if sess:
-            progress = self._train(iters, mbsize, sess, verbose)    
-        else:
-            with tf.Session() as sess:
-                progress = self._train(iters, mbsize, sess, verbose)
+        return self._train(iters, mbsize, sess, verbose)
 
-        return progress
+
+    def encoder_fp(self, data, sess=None):
+        ''' Performs one forward pass of the encoder.
+            Output are the parameters for the latent distribution.
+
+            Params:
+                - data: Datapoint(s) to be processed by encoder
+                - sess: TF session to use if already instantiated one
+        '''
+        sess = sess or self.sess
+        return sess.run(self.latent["mu"], self.latent["stddev"],
+            feed_dict={self.x_batch: data})
+
+
+    def decoder_fp(self, sess=None):
+        ''' Performs one forward pass of the decoder.
+            Output are the parameters for the data distribution.
+
+            Params:
+                - sess: TF session to use if already instantiated one
+        '''
+        sess = sess or self.sess
+        return sess.run(self.decoder.out_params.p)
+
+
+    def full_fp(self, data, sess=None):
+        ''' Performs one full forward pass of VAE end-to-end.
+
+            Params:
+                - data: Datapoint(s) to be processed by encoder
+                - sess: TF session to use if already instantiated one
+        '''
+        sess = sess or self.sess
+        return sess.run([self.latent["mu"], self.latent["stddev"],
+            self.decoder.out_params.p], feed_dict={self.x_batch: data})
+

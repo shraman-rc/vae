@@ -14,19 +14,19 @@ architecture: {
 
 dims: {
     data: 784, # MNIST, flattened
-    latent: 10
+    latent: 2
 }
 
 optimization: {
     type: Adam,
     Adagrad_rate: 0.01,
-    Adam_rate: 0.015,
+    Adam_rate: 0.01,
     max_grad: 1000000
 }
 
 training: {
     batch_size: 100,
-    n_iters: 10
+    n_iters: 750
 }
 
 AEVB: { # Params specified in [1]
