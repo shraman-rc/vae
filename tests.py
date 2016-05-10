@@ -86,6 +86,24 @@ def multivariate_latent_space_PCA():
     pass
 
 
+def reconstruction_test():
+    '''
+    Reconstruct samples after training VAE
+    '''
+    # Instantiate and train vanilla autoencoder
+    nn = vae.VAE(ARCH, DIMS, OPT, PARAMS, TRAIN)
+    nn.train()
+
+    # Do single forward pass on the encoder
+    new_data = vae.mnist.test.next_batch(TRAIN["batch_size"])[0]
+    mu_q, stddev_q, rho_p = nn.full_fp(new_data)
+
+    vis.juxtapose_images(
+        [im.reshape(28,28) for im in new_data[:5]],
+        [im.reshape(28,28) for im in rho_p[:5]])
+
+
 if __name__ == "__main__":
     #simple_test()
-    bivariate_latent_space()
+    #bivariate_latent_space()
+    reconstruction_test()
