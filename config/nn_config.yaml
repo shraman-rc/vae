@@ -6,7 +6,7 @@ architecture: {
     },
     decoder: {
         n_layers: 1,
-        n_units: [200],
+        n_units: [500],
         distribution: Bernoulli
     },
     activation: "ReLU"
