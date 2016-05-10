@@ -14,7 +14,12 @@ A variational autoencoder is an encoder-decoder pair of neural networks that are
 
 \[Stay tuned\]
 
-## Cool Stuff
+### Understanding the AEVB Framework
+
+Q: _Can I just perform variational inference (i.e. optimize the posterior approximation) instead of simultaneously optimizing the hyperparameters for p(x|z)?_
+A: Yes! You can omit the decoder network so that the objective is solely differentiated w.r.t. the outputs of the encoder, which parameterize the posterior approximation. Using the ELBO estimator derived in [1] version B, you have the Monte Carlo estimate of the p(x|z) term, which can either be used to optimize a decoder net (where the hyperparameter p(x|z) is D(z) where D(z) is the output of the decoder) OR be optimized solely with the encoder net (where the hyperparameter p(x|z) is simply 'z' -- not D(z)).
+
+## Experiments
 
 1. Application to Dirichlet Processes?
 
