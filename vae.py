@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 """ vae.py: Run the Variational Auto-encoder.
 
     TODO:
@@ -20,8 +18,19 @@
             sometimes blow up to 3e+28 and when it doesn't, they will go no higher
             than 100! However, there is much more stability across runs even at 0.015!
 
-            TODO: Try value clipping of the KL divergence
-        - Refactor so that all variables are easily reference-able
+            TODO: Try value clipping of the KL divergence. Norm clipping too?
+        - We use output of sigmoid to parameterize the multivariate Bernoulli.
+            Does its steepeness affect learning?
+        - Apply batch normalization as in [3]
+        - Try different reconstruction loss instead of log-likelihood:
+            - Cross entropy
+        - Quantitatively assess Adagrad, SGD, Adam performance
+        - Use tf.nn.dropout to perform Variational Dropout
+        - Examples:
+            - DRAW network
+            - Generative adversarial network
+            - Music composition network (similar to DRAW)
+            - Artistic network (similar to DRAW)
 """
 
 __author__ = "shraman-rc"
@@ -29,142 +38,185 @@ __author__ = "shraman-rc"
 import tensorflow as tf
 import numpy as np
 import click as cl
-import yaml
 
 from nets import BernoulliMLP, GaussianMLP
 import likelihoods as lh
-import vis
 
-CONFIG = 'config/nn_config.yaml'
-
-try:
-    config = yaml.load(file(CONFIG, 'r'))
-except yaml.YAMLError, exc:
-    cl.secho("Error in configuration file: {}".format(exc), fg='red')
-
-
-ARCH = config["architecture"]
-DIMS = config["dims"]
-OPT = config["optimization"]
-TRAIN = config["training"]
-PARAMS = config["AEVB"]
 
 tf.set_random_seed(0)
 
+class VAE(object):
 
-# Inputs - mini-batches of (flattened) images
-x_batch = tf.placeholder(tf.float32, shape=[TRAIN["batch_size"], DIMS["data"]])
+    def __init__(self, ARCH, DIMS, OPT, PARAMS, TRAIN):
+        '''
+        Initializes VAE with parameter dictionaries that should follow the
+            same format as config/nn_config.yaml
+        '''
+        self.ARCH, self.DIMS, self.OPT, self.PARAMS, self.TRAIN = \
+            ARCH, DIMS, OPT, PARAMS, TRAIN
 
-# Encoder parameterizes Gaussian approximation q(z|x)
-encoder = GaussianMLP(x_batch, ARCH["encoder"]["n_units"], DIMS["latent"])
+        # Inputs - mini-batches of (flattened) images
+        self.x_batch = tf.placeholder(tf.float32,
+            shape=[None, self.DIMS["data"]])
 
-# Bridge between encoder and decoder
-mu_q = encoder.out_params.mu
-log_var_q = encoder.out_params.log_var
-var_q = tf.exp(log_var_q)
-sigma_q = tf.sqrt(var_q)
+        # Encoder parameterizes posterior Gaussian approximation q(z|x)
+        self.encoder = GaussianMLP(self.x_batch,
+            self.ARCH["encoder"]["n_units"], self.DIMS["latent"])
+        self.latent = {}
+        self.latent["mu"] = self.encoder.out_params.mu
+        self.latent["log_var"] = self.encoder.out_params.log_var
+        self.latent["var"] = tf.exp(self.latent["log_var"])
+        self.latent["stddev"] = tf.sqrt(self.latent["var"])
 
-# Latent space samples w/ reparameterization (z = g(ep,x); ep ~ p(ep))
-#   Note: Element-wise univariate Gaussian sampling <=> multivariate Gaussian sampling
-ep = tf.random_normal([TRAIN["batch_size"], DIMS["latent"]], mean=0, stddev=1)
-z_batch = mu_q + sigma_q*ep # one latent per datapoint (MxJ)
+        # Reparameterize latent space (z = g(ep,x); ep ~ p(ep))
+        #   Note: Element-wise univariate Gaussian sampling <=>
+        #         multivariate Gaussian sampling
+        self.ep = tf.random_normal([self.TRAIN["batch_size"],
+            self.DIMS["latent"]], mean=0, stddev=1)
+        self.z_batch = self.latent["mu"] + self.latent["stddev"]*self.ep
 
-decoder = BernoulliMLP(z_batch, ARCH["decoder"]["n_units"], DIMS["data"])
+        # Decoder samples from latent distribution, parameterizes likelihood
+        #   (in this case, a multivariate Bernoulli - working with images)
+        self.decoder = BernoulliMLP(self.z_batch,
+            self.ARCH["decoder"]["n_units"], self.DIMS["data"])
 
-# The (negative) KL divergence between the variational approx. and the *prior*
-#   p_theta(z) acts as a regularizing term so that the latent distribution
-#   doesn't overfit. The closed-form eq. is derived in [1]: Appedix B
-# TODO: Why would overfitting be a problem in the auto-encoding scenario? Wouldn't
-#   overfitting lead to a better likelihood lower bound measure used in [1]'s experiments?
-KL_regularizer = 0.5 * tf.reduce_sum(1 + log_var_q - tf.square(mu_q) - var_q, 1)
+        # The (negative) KL divergence between the variational approx. and the *prior*
+        #   p_theta(z) acts as a regularizing term so that the latent distribution
+        #   doesn't overfit. The closed-form eq. is derived in [1]: Appedix B
+        self.neg_KL_pr = 0.5 * tf.reduce_sum(1 + self.latent["log_var"]
+            - self.latent["mu"]**2 - self.latent["var"], 1)
 
-# The 'reconstruction error' (predictive likelihood): log p_theta(x_batch|z)
-# TODO: Try a different loss function? Cross entropy?
-reconstr_err = lh.ll_bernoulli(x_batch, decoder.out_params.p)
+        # The 'reconstruction error' (predictive likelihood): log p_theta(x_batch|z)
+        self.ll = lh.ll_bernoulli(self.x_batch, self.decoder.out_params.p)
 
-# TODO: WE TAKE ELEMENT WISE SIGMOID TO PARAMETERIZE MULTIVARIATE BERNOULLI (i.e. pixel values in image - note will need to rescale if doing on regular images) BUT HOW DOES STEEPNESS OF SIGMOID AFFECT LEARNING? Does it take longer for theta (Bernoulli probs) to converge?
+        # ELBO estimate (total reward function)
+        self.ELBO_est = tf.reduce_mean(self.neg_KL_pr + self.ll) # Mean over minibatch
 
-# ELBO estimator construction
-# TODO: Apply batch normalization here as in [3]?
-# TODO: See effects on Adagrad, SGD, and ADAM separately?
-ELBO_estimate = tf.reduce_mean(KL_regularizer + reconstr_err) # Mean val over minibatch
+        # Pick a flavor of gradient descent
+        if self.OPT["type"].lower() == "adagrad":
+            self.optimizer = tf.train.AdagradOptimizer(self.OPT["Adagrad_rate"])
+        elif self.OPT["type"].lower() == "adam":
+            self.optimizer = tf.train.AdamOptimizer(self.OPT["Adam_rate"])
 
-# TODO: Using Adagrad as per [1] but was written before ADAM (by same author!)
-#       Later transition to ADAM
-if OPT["type"].lower() == "adagrad":
-    optimizer = tf.train.AdagradOptimizer(OPT["Adagrad_rate"])
-elif OPT["type"].lower() == "adam":
-    optimizer = tf.train.AdamOptimizer(OPT["Adam_rate"])
+        # Notice that we are minimizing the negative (i.e. maximizing) the ELBO
+        #   We also clip the gradients to prevent blowup during first few
+        #   training phases
+        #self.train_op = self.optimizer.minimize(-self.ELBO_est)
+        #self.vi_train_op = self.optimizer.minimize(-self.neg_KL_pr)
+        #self.ll_train_op = self.optimizer.minimize(-self.ll)
+        # ...with clipped gradients:
+        gvs = self.optimizer.compute_gradients(-self.ELBO_est)
+        capped_gvs = [(tf.clip_by_value(
+            grad, -self.OPT["max_grad"], self.OPT["max_grad"]), var)
+            for grad, var in gvs if grad != None]
+        flat_grads = [tf.reshape(grad,[-1]) for grad, var in capped_gvs]
+        self.max_grad = tf.reduce_max(tf.concat(0, flat_grads))
+        self.train_op = self.optimizer.apply_gradients(capped_gvs)
 
-# Notice that we are minimizing the negative (i.e. maximizing) the variational
-#   lower bound
-#train_op = optimizer.minimize(-ELBO_estimate)
-#vi_train_op = optimizer.minimize(-KL_regularizer)
-#ll_train_op = optimizer.minimize(-reconstr_err)
-# ...with clipped gradients:
-gvs = optimizer.compute_gradients(-ELBO_estimate)
-capped_gvs = [(tf.clip_by_value(grad, -OPT["max_grad"], OPT["max_grad"]), var)
-                for grad, var in gvs if grad != None]
-flat_grads = [tf.reshape(grad,[-1]) for grad, var in capped_gvs]
-max_grad = tf.reduce_max(tf.concat(0, flat_grads))
-train_op = optimizer.apply_gradients(capped_gvs)
 
-# Train on MNIST
-T = TRAIN["n_iters"]
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-ELBOs = np.zeros(T)
-KLs = np.zeros(T)
-LLs = np.zeros(T)
+    def _train_step(self, sess, data, verbose=True):
+        ''' Common helper to run individual training steps, see _train()
+            Returns output of salient variables above (e.g. ELBO) after
+            each optimization iteration
 
-with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
-    iters = xrange(T)
+            Params:
+                - sess,verbose: See _train()
+                - data: batch of raw data with correct dimensions
+        '''
+        _, ELBO, ll, neg_KL, mu, log_var, ep, max_grad = sess.run([
+            self.train_op,
+            self.ELBO_est,
+            self.ll,
+            self.neg_KL_pr,
+            self.latent["mu"],
+            self.latent["log_var"],
+            self.ep,
+            self.max_grad],
+        feed_dict={self.x_batch: data})
+        # _, ELBO, ll, neg_KL, mu, log_var, ep, max_grad = sess.run([
+        #    self.vi_train_op,
+        #    self.ELBO_est,
+        #    self.ll,
+        #    self.neg_KL_pr,
+        #    self.latent["mu"],
+        #    self.latent["log_var"],
+        #    self.ep,
+        #    self.max_grad],
+        # feed_dict={x_batch: data})
 
-    # Train TODO: Move into MLP class
-    for t in iters:
-        cl.secho('Minibatch {}'.format(t), fg='green', bold=False)
-        batch = mnist.train.next_batch(TRAIN["batch_size"])
-        _, ELBO, ll, neg_KL, mu, log_var, epsilon, max_grad_val = sess.run(
-            [train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep, max_grad],
-            feed_dict={x_batch: batch[0]})
-       # _, ELBO, ll, neg_KL, mu, log_var, epsilon = sess.run(
-       #     [vi_train_op, ELBO_estimate, reconstr_err, KL_regularizer, mu_q, log_var_q, ep],
-       #     feed_dict={x_batch: batch[0]})
-
-        # Perform some sort of reductions to be able to print
-        ELBO, neg_KL, ll, mu, log_var, epsilon = \
-            (np.mean(ELBO),
-             np.mean(neg_KL),
-             np.mean(ll),
-             mu[0],
-             log_var[0],
-             epsilon[0])
-        ELBOs[t] = ELBO; KLs[t] = -neg_KL; LLs[t] = ll
+        # Perform some sort of reductions on minibatches if need be
+        ELBO, neg_KL, ll, mu, log_var, ep = (
+            np.mean(ELBO),
+            np.mean(neg_KL),
+            np.mean(ll),
+            mu[0],
+            log_var[0],
+            ep[0])
 
         # Print stats
-        cl.secho(("ELBO (estimate): {}\n"
-        "KL Div (prior): {}\n"
-        "Likelihood: {}\n"
-        "Mu: {}\n"
-        "Log var: {}\n"
-        "Epsilon: {}\n"
-        "Max grad: {}")
-            .format(ELBO, -neg_KL, ll, mu, log_var, epsilon, max_grad_val), fg='cyan')
+        if verbose:
+            cl.secho((
+                "ELBO (estimate): {}\n"
+                "KL Div (prior): {}\n"
+                "Likelihood: {}\n"
+                "Mu: {}\n"
+                "Log var: {}\n"
+                "Epsilon: {}\n"
+                "Max grad: {}")
+            .format(ELBO, -neg_KL, ll, mu, log_var, ep, max_grad), fg='cyan')
 
-    # Graph
-    titles = ["$\mathcal{L}(\phi,\\theta;x)$",
-              "$KL(q_{\phi}(z|x)||p_{\\theta}(z))$",
-              "$\log(p_{\\theta}(x|z))$"]
-    params = {"$\eta_{%s}$" % OPT["type"]: OPT["{}_rate".format(OPT["type"])],
-              "$Activation$": ARCH["activation"],
-              "$Batch$ $Size$": TRAIN["batch_size"],
-              "$MCE$ $Samples$": PARAMS["L"],
-              "$Latent$ $Dim$": DIMS["data"]}
-    vis.basic_multiplot([iters]*3, [[ELBOs], [KLs], [LLs]], titles,
-        show_legend=False, params=params)
-    
+        return ELBO, ll, neg_KL, mu, log_var, ep, max_grad
 
-# TODO: When implementating Variational Dropout, can use tf.nn.dropout
 
-cl.secho('Success!', fg='green', bold=True)
+    def _train(self, iters, mbsize, sess, verbose=True):
+        ''' Trains the VAE end-to-end on MNIST (handwriting) dataset
+            Returns progress through training phases on above variables
+            via numpy arrays.
+            
+            Params:
+                - iters: Number of training iteration per epoch
+                - mbsize: Number of datapoints per minibatch
+                - sess: TF session to use if already instantiated one
+                    if None, will use temporary session
+                - verbose: Print training progress after each timestep
+        '''
+        # Train on MNIST
+        from tensorflow.examples.tutorials.mnist import input_data
+        mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+
+        # To keep track of progress
+        progress = {}
+        progress["ELBO"] = np.zeros(iters)
+        progress["KL"] = np.zeros(iters)
+        progress["LL"] = np.zeros(iters)
+
+        # Optimize VAE
+        sess.run(tf.initialize_all_variables())
+        timesteps = xrange(iters)
+        for t in timesteps:
+            cl.secho('Minibatch {}'.format(t), fg='green', bold=False)
+            batch = mnist.train.next_batch(mbsize)[0]
+            prog = self._train_step(sess, batch, verbose)
+            progress["ELBO"][t] = prog[0]
+            progress["LL"][t] = prog[1]
+            progress["KL"][t] = -prog[2]
+
+        progress["iters"] = timesteps
+
+        cl.secho('Success!', fg='green', bold=True)
+        return progress
+
+
+    def train(self, iters=None, mbsize=None, sess=None, verbose=True):
+        ''' Wrapper for above _train() function
+        '''
+        iters = iters or self.TRAIN["n_iters"]
+        mbsize = mbsize or self.TRAIN["batch_size"]
+
+        if sess:
+            progress = self._train(iters, mbsize, sess, verbose)    
+        else:
+            with tf.Session() as sess:
+                progress = self._train(iters, mbsize, sess, verbose)
+
+        return progress

@@ -44,18 +44,20 @@ class MLP(object):
 
         # Generate input layer
         self.weights = [tf.Variable(
-                            self.w_init([self.input_dim, layer_sizes[0]])
-                        )]
+            self.w_init([self.input_dim, layer_sizes[0]]))]
         self.biases = [tf.Variable(
-                            self.b_init([layer_sizes[0]])
-                      )]
-        self.hidden_out = self.activate(tf.matmul(self.input_batch, self.weights[-1]) + self.biases[-1])
+            self.b_init([layer_sizes[0]]))]
+
+        # Keeps track of the hidden layer output as we build
+        self.hidden_out = self.activate(
+            tf.matmul(self.input_batch, self.weights[-1]) + self.biases[-1])
 
         # Generate arbitrarily deep hidden layers
         for in_dim,out_dim in zip(layer_sizes, layer_sizes[1:]):
             self.weights.append(tf.Variable(self.w_init([in_dim, out_dim])))
             self.biases.append(tf.Variable(self.b_init([out_dim])))
-            self.hidden_out = self.activate(tf.matmul(self.hidden_out, self.weights[-1]) + self.biases[-1])
+            self.hidden_out = self.activate(
+                tf.matmul(self.hidden_out, self.weights[-1]) + self.biases[-1])
 
         # Generate output layer (parameters of a distribution)
         self.out_params = self._gen_params()
