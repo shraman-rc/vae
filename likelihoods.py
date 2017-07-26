@@ -11,7 +11,7 @@ Notation:
     - 'll' stands for 'log likelihood'
 '''
 
-BARRIER = 1e-7 # Prevents evaluation of log(0) = nan
+BARRIER = 1e-9 # Prevents evaluation of log(0) = nan
 # TODO: Bug: have 1e-10 creates nan's for likelihood in this implementation
 #       but not in Metzen's
 # TODO: Effect is exacerbated by higher learning rates
@@ -36,6 +36,7 @@ def ll_bernoulli(data, rho):
     # 0-1 coefficients x_i) we get our log-likelihood:
     #   \sum_i {x_i*log(rho_i) + (1-x_i)*log(1-rho_i)}
     return tf.reduce_sum(data*tf.log(BARRIER + rho) + (1-data)*tf.log(BARRIER + 1-rho), 1)
+    #return tf.reduce_sum(data*tf.log(BARRIER) + (1-data)*tf.log(BARRIER), 1)
 
 def ll_gaussian(data, mu, log_var):
     '''

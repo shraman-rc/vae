@@ -6,7 +6,7 @@ architecture: {
     },
     decoder: {
         n_layers: 1,
-        n_units: [200],
+        n_units: [500],
         distribution: Bernoulli
     },
     activation: "ReLU"
@@ -14,13 +14,14 @@ architecture: {
 
 dims: {
     data: 784, # MNIST, flattened
-    latent: 10
+    latent: 20
 }
 
 optimization: {
-    type: Adagrad,
+    type: Adam,
     Adagrad_rate: 0.01,
-    Adam_rate: 0.001
+    Adam_rate: 0.01,
+    max_grad: 1000000
 }
 
 training: {

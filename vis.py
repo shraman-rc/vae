@@ -6,7 +6,11 @@ __author__ = 'shraman-rc'
 import os
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
 import matplotlib.widgets as widget
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import numpy as np
 
 def basic_multiplot(data_xs, data_ys, titles, labels=None, unit_x="Minibatches", show_legend=True, params={}):
@@ -77,4 +81,64 @@ def basic_multiline(data_x, data_ys, x_axis="Minibatch", y_axis="Error",
     plt.yticks(fontsize=20)
     plt.grid()
     
+    plt.show()
+
+
+def juxtapose_images(imset1, imset2):
+    assert(len(imset1) == len(imset2))
+    N = len(imset1)
+
+    plt.figure(figsize=(8, 12))
+
+    for i in range(N):
+        plt.subplot(N, 2, 2*i + 1)
+        plt.imshow(imset1[i], vmin=0, vmax=1)
+        plt.axis('off')
+        plt.title("Original (MNIST)")
+        plt.subplot(N, 2, 2*i + 2)
+        plt.imshow(imset2[i], vmin=0, vmax=1)
+        plt.axis('off')
+        plt.title("Reconstructed")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def full_pass_vis(imset1, imset2, mu, stddev):
+    ''' Visualize reconstructed images and latent distributions
+    '''
+    assert(len(imset1) == len(imset2))
+    N = len(imset1)
+
+    fig = plt.figure()
+
+    for i in range(N):
+        # Plot the images
+        plt.subplot(N, 3, 3*i + 1)
+        plt.imshow(imset1[i], vmin=0, vmax=1)
+        plt.axis('off')
+        plt.title("Original (MNIST)")
+        plt.subplot(N, 3, 3*i + 3)
+        plt.imshow(imset2[i], vmin=0, vmax=1)
+        plt.axis('off')
+        plt.title("Reconstructed")
+
+        # Plot the latent distributions in between
+        ax = plt.subplot(N, 3, 3*i + 2, projection='3d')
+        mux, muy = mu[i]
+        sigx, sigy = stddev[i]
+        X = np.arange(-0.5, 0.5, 0.025) + mux
+        Y = np.arange(-0.5, 0.5, 0.025) + muy
+        X, Y = np.meshgrid(X, Y)
+        Z = mlab.bivariate_normal(X,Y, sigmax=sigx, sigmay=sigy, mux=mux, muy=muy)
+        surf = ax.plot_surface(X, Y, Z, rstride=2, cstride=2, cmap=cm.PuBu,
+            linewidth=0.1, antialiased=False)
+
+        # Style the 3D plot
+        ax.set_zlim(np.min(Z), 1.5*np.max(Z))
+        ax.set_title("$q_{\phi}(z|x)$", fontsize=20)
+        ax.zaxis.set_major_locator(LinearLocator(5))
+        ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+        
+    #plt.tight_layout()
     plt.show()
