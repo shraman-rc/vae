@@ -10,22 +10,9 @@ This repo is also a project submission for Tamara Broderick's "Bayesian Inferenc
 
 ### What is a "Variational Autoencoder"?
 
-A variational autoencoder is an encoder-decoder pair of neural networks that are designed to perform approximate posterior inference on latent variables given a dataset (originally developed for "coding" models, with one latent per data point). This means that the objective function being optimized in the ANN is (an estimate of) the evidence lower bound ("ELBO"), which in turn decreases the "KL-divergence" (a measure of the difference in information between the distributions, or "relative entropy") between an approximative distribution (q(z|x)) and the true posterior (p(z|x)). A quick (but technical) introduction to Variational Inference can be found in \[2\] and the auto-encoding framework for VI in \[1\].
-
-### Why are Variational Autoencoders important?
-
-\[Stay tuned\]
-
-## Cool Stuff
-
-1. Application to Dirichlet Processes?
-
-    - Can we apply the reparameterization techniques to this AEVB framework?
-        [Derivation]
+A variational autoencoder is an encoder-decoder pair of neural networks that are designed to perform approximate posterior inference on latent variables. The loss function is (an estimate of) the evidence lower bound, optimizing which decreases the KL-divergence (or "relative entropy") between the approximating and true posteriors. A quick introduction to VI can be found in \[2\] and the auto-encoding framework for VI in \[1\].
 
 ## Optimizations
-
-The vanilla VAE has lots of potential but there are a few shortcomings that make its convergence rate suboptimal with respect to the state-of-the-art. Here are improvements that have been applied (so far) in this repository:
 
 ### Statistical Optimizations
 #### Reparameterization I: Reducing MCE Variance
@@ -51,7 +38,6 @@ Having approached this from a purely statistical point of view, we can expect be
 #### Streaming VB
 
 #### Posterior Predictive Checking
-- Different error function than just log p(x|z) for specific models (inspired by Bayesian Checking for Topic Models)
 
 ### Numerical Optimizations
 #### ADAM Optimizer
@@ -60,11 +46,6 @@ Having approached this from a purely statistical point of view, we can expect be
 
 #### Activation Functions
 
-#### TF-Related Optimizations
-
-## Future Work
-
-\[Stay tuned\]
 
 ## References
 \[1\] [_Auto-encoding Variational Bayes_](http://arxiv.org/abs/1312.6114); Kingma, Welling; NIPS 2014
