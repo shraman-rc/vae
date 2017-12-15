@@ -1,6 +1,6 @@
 # VINNy
 
-An implementation of VAEs in (and old version of) Tensorflow.
+An implementation of VAEs in (an old version of) Tensorflow.
 
 This repo is also a project submission for Tamara Broderick's "Bayesian Inference" (6.882) course at MIT.
 
